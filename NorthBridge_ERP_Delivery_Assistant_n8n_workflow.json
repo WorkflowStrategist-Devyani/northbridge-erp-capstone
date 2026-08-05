@@ -1,0 +1,570 @@
+{
+  "name": "NorthBridge ERP - Delivery Risk & Escalation Assistant",
+  "nodes": [
+    {
+      "id": "trigger1",
+      "name": "New Transcript Submitted",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -1180,
+        300
+      ],
+      "parameters": {},
+      "notes": "Swap for a Google Sheets Trigger (On Row Added) watching the Meeting_Transcripts tab, or a Form trigger, for a live deployment."
+    },
+    {
+      "id": "s1",
+      "name": "Note: s1",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1180,
+        60
+      ],
+      "parameters": {
+        "content": "## 1. INPUT\nForm / Google Sheet\n\nMeeting_Transcripts tab holds the raw, unstructured text of each PMO meeting. This is the only place a human types anything for this workflow to run.",
+        "height": 200,
+        "width": 320,
+        "color": 4
+      }
+    },
+    {
+      "id": "readTranscript",
+      "name": "Read Meeting Transcript",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -940,
+        300
+      ],
+      "parameters": {
+        "operation": "read",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.spreadsheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Meeting_Transcripts",
+          "mode": "name"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "Meeting_ID",
+              "lookupValue": "={{$json.meetingId}}"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "claudeExtract",
+      "name": "Claude - Extract Actions (STAR)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -700,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$credentials.anthropicApi.apiKey}}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: \"claude-sonnet-4-5\",\n  max_tokens: 1500,\n  system: \"You are a PMO analyst assistant. You will be given the raw transcript of one programme status meeting. Extract every commitment, decision, or risk mentioned, using the STAR lens (what Situation/Task was raised, what Action was committed to, what Result/deadline is expected) to decide what counts as a trackable item. Do not invent items that are not clearly stated.\\n\\nFor each item return:\\n- type: \\\"Action\\\" or \\\"Decision\\\"\\n- action_item: one sentence, imperative\\n- owner: the named individual who committed to it (not a team or committee, unless that is genuinely what was said)\\n- due_date: ISO format (assume year 2026 if only day/month is stated)\\n- priority: High / Medium / Low, based on stated business impact\\n- source_quote: the exact sentence that supports this extraction, for traceability\\n\\nReturn valid JSON only: a list of objects with these six fields. Nothing else.\",\n  messages: [{ role: \"user\", content: $json.Transcript_Text }]\n}) }}"
+      }
+    },
+    {
+      "id": "s2",
+      "name": "Note: s2",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -700,
+        60
+      ],
+      "parameters": {
+        "content": "## 2. GEN AI \u2014 UNSTRUCTURED IN\nClaude reads free-text meeting dialogue and extracts structured actions/decisions/owners/dates. STAR framing decides what counts as a trackable item. Nothing here is calculated \u2014 it is read and interpreted.",
+        "height": 220,
+        "width": 320,
+        "color": 3
+      }
+    },
+    {
+      "id": "parseExtract",
+      "name": "Parse Claude JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -460,
+        300
+      ],
+      "parameters": {
+        "jsMode": "runOnceForEachItem",
+        "jsCode": "const text = $input.item.json.content[0].text;\nconst items = JSON.parse(text);\nreturn items.map(a => ({ json: a }));"
+      }
+    },
+    {
+      "id": "writeExtract",
+      "name": "Append to Claude_Extracted_Actions",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -220,
+        300
+      ],
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.spreadsheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Claude_Extracted_Actions",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData"
+        }
+      }
+    },
+    {
+      "id": "readPlan",
+      "name": "Read Project_Plan (Owners)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -220,
+        520
+      ],
+      "parameters": {
+        "operation": "getAll",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.spreadsheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Project_Plan",
+          "mode": "name"
+        }
+      }
+    },
+    {
+      "id": "escalationEngine",
+      "name": "Deterministic Escalation Engine",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        20,
+        300
+      ],
+      "parameters": {
+        "jsMode": "runOnceForAllItems",
+        "jsCode": "// NO AI CALL IN THIS NODE. Pure validation + date arithmetic, mirrors the\n// Risk_Action_Tracker spreadsheet formulas so the workflow and the sheet never disagree.\nconst plan = $('Read Project_Plan (Owners)').all().map(i => i.json.Owner);\nconst today = new Date(); today.setHours(0,0,0,0);\n\nreturn $input.all().map(item => {\n  const a = item.json;\n  const ownerValid = plan.includes(a.owner) ? 'Valid Owner' : 'NOT FOUND IN PLAN';\n  const due = new Date(a.due_date);\n  const daysToDue = Math.round((due - today) / 86400000);\n  let status = 'ON TRACK';\n  if (daysToDue < 0) status = 'OVERDUE';\n  else if (daysToDue <= 3) status = 'AT RISK';\n  let note = 'On track \u2014 no action';\n  if (status === 'OVERDUE' && a.priority === 'High') note = 'ESCALATE TO STEERING COMMITTEE';\n  else if (status === 'OVERDUE') note = 'Escalate to workstream lead';\n  else if (status === 'AT RISK') note = 'Monitor daily';\n  return { json: { ...a, owner_valid: ownerValid, days_to_due: daysToDue, status, escalation_note: note } };\n});"
+      }
+    },
+    {
+      "id": "s3",
+      "name": "Note: s3",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        20,
+        60
+      ],
+      "parameters": {
+        "content": "## 3. DETERMINISTIC LOGIC \u2014 NO AI\nCode node only. Validates each owner against Project_Plan (lookup) and calculates days-to-due and status from real dates (arithmetic + if/else). Identical logic to the spreadsheet formulas \u2014 reproducible, auditable, no model judgement.",
+        "height": 220,
+        "width": 340,
+        "color": 5
+      }
+    },
+    {
+      "id": "writeTracker",
+      "name": "Update Risk_Action_Tracker",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        280,
+        300
+      ],
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.spreadsheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Risk_Action_Tracker",
+          "mode": "name"
+        },
+        "matchingColumns": [
+          "action_id"
+        ],
+        "columns": {
+          "mappingMode": "autoMapInputData"
+        }
+      }
+    },
+    {
+      "id": "ifEscalate",
+      "name": "Escalation Needed?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        520,
+        300
+      ],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{$json.escalation_note}}",
+              "rightValue": "ESCALATE TO STEERING COMMITTEE",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "claudeSCQA",
+      "name": "Claude - SCQA Escalation Brief",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        180
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$credentials.anthropicApi.apiKey}}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: \"claude-sonnet-4-5\",\n  max_tokens: 700,\n  system: \"You are preparing a single escalation item for a Steering Committee. You will be given one decision-flagged item from the Risk_Action_Tracker plus relevant context rows. Structure your output using SCQA:\\n- Situation: 2-3 sentences of neutral factual context\\n- Complication: what has changed or gone wrong, and why it matters now\\n- Question: the single decision the committee must make, phrased as a clear choice\\n- Answer: your recommended path and one-sentence reasoning, explicitly labelled as a draft recommendation for discussion, not a final decision\\n\\nUnder 150 words total.\",\n  messages: [{ role: \"user\", content: JSON.stringify($json) }]\n}) }}"
+      }
+    },
+    {
+      "id": "slackSteering",
+      "name": "Slack - Steering Committee Channel (Draft)",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        1000,
+        180
+      ],
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "#steering-committee-drafts",
+          "mode": "name"
+        },
+        "text": "={{ 'DRAFT \u2014 pending PM review before this goes to the Committee:\\n\\n' + $json.content[0].text }}"
+      }
+    },
+    {
+      "id": "s4",
+      "name": "Note: s4",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1000,
+        -60
+      ],
+      "parameters": {
+        "content": "## 5. HUMAN REVIEW\nAll AI output lands in a *drafts* channel/sheet, never a live one. The Programme Manager edits or approves in Slack/Sheets before anything reaches the Steering Committee or a wider audience.",
+        "height": 200,
+        "width": 320,
+        "color": 7
+      }
+    },
+    {
+      "id": "claudeBLUF",
+      "name": "Claude - Weekly BLUF Status Report",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        760,
+        420
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.anthropic.com/v1/messages",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-api-key",
+              "value": "={{$credentials.anthropicApi.apiKey}}"
+            },
+            {
+              "name": "anthropic-version",
+              "value": "2023-06-01"
+            },
+            {
+              "name": "content-type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({\n  model: \"claude-sonnet-4-5\",\n  max_tokens: 900,\n  system: \"You are drafting a weekly programme status update for a Steering Committee sponsor. You will be given the full Risk_Action_Tracker, which has already been validated and status-calculated by deterministic spreadsheet logic. Do not recompute or override any status, date, or owner-validation value \\u2014 only narrate it.\\n\\nWrite the update using the BLUF framework:\\n1. Bottom Line \\u2014 one paragraph stating overall programme health and the single most important thing the reader needs to know or decide.\\n2. Progress This Week\\n3. Risks (At Risk or Overdue items only)\\n4. Asks of Leadership\\n\\nKeep it scannable. Under 200 words excluding the Bottom Line. This is a draft for programme-manager review \\u2014 never present it as final.\",\n  messages: [{ role: \"user\", content: JSON.stringify($('Update Risk_Action_Tracker').all().map(i => i.json)) }]\n}) }}"
+      }
+    },
+    {
+      "id": "s5",
+      "name": "Note: s5",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        760,
+        640
+      ],
+      "parameters": {
+        "content": "## 4. GEN AI \u2014 STRUCTURED OUT\nClaude turns the validated tracker rows into leadership-ready prose \u2014 BLUF for the weekly update, SCQA for a single steering-committee decision ask. It narrates the numbers; it never recalculates them.",
+        "height": 200,
+        "width": 340,
+        "color": 3
+      }
+    },
+    {
+      "id": "writeBLUF",
+      "name": "Write Status_Report_BLUF",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1000,
+        420
+      ],
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "={{$json.spreadsheetId}}",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Status_Report_BLUF",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData"
+        }
+      }
+    },
+    {
+      "id": "slackPMReview",
+      "name": "Slack - DM PM for Review",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.2,
+      "position": [
+        1240,
+        420
+      ],
+      "parameters": {
+        "select": "user",
+        "user": {
+          "__rl": true,
+          "value": "@rahul.verma",
+          "mode": "name"
+        },
+        "text": "={{ 'Weekly BLUF status report drafted \u2014 review before sending to Steering Committee:\\n\\n' + $json.content[0].text }}"
+      }
+    }
+  ],
+  "connections": {
+    "New Transcript Submitted": {
+      "main": [
+        [
+          {
+            "node": "Read Meeting Transcript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Meeting Transcript": {
+      "main": [
+        [
+          {
+            "node": "Claude - Extract Actions (STAR)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude - Extract Actions (STAR)": {
+      "main": [
+        [
+          {
+            "node": "Parse Claude JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Claude JSON": {
+      "main": [
+        [
+          {
+            "node": "Append to Claude_Extracted_Actions",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read Project_Plan (Owners)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read Project_Plan (Owners)": {
+      "main": [
+        [
+          {
+            "node": "Deterministic Escalation Engine",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Deterministic Escalation Engine": {
+      "main": [
+        [
+          {
+            "node": "Update Risk_Action_Tracker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Risk_Action_Tracker": {
+      "main": [
+        [
+          {
+            "node": "Escalation Needed?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Claude - Weekly BLUF Status Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Escalation Needed?": {
+      "main": [
+        [
+          {
+            "node": "Claude - SCQA Escalation Brief",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Claude - SCQA Escalation Brief": {
+      "main": [
+        [
+          {
+            "node": "Slack - Steering Committee Channel (Draft)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude - Weekly BLUF Status Report": {
+      "main": [
+        [
+          {
+            "node": "Write Status_Report_BLUF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write Status_Report_BLUF": {
+      "main": [
+        [
+          {
+            "node": "Slack - DM PM for Review",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "instanceId": "capstone-northbridge-erp"
+  }
+}

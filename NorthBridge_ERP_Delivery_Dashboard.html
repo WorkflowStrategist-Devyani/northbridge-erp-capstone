@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NorthBridge ERP — Delivery Risk & Escalation Assistant</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --navy:#1F2A44; --navy2:#2C3A5E; --gold:#B08D57; --grey:#F5F6F8;
+    --red:#C0392B; --amber:#B7791F; --green:#1E8449; --text:#22283A;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--grey);color:var(--text);}
+  header{background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;padding:28px 40px;}
+  header .eyebrow{color:var(--gold);letter-spacing:2px;font-size:12px;font-weight:bold;text-transform:uppercase;}
+  header h1{margin:6px 0 4px;font-size:26px;}
+  header p{margin:0;color:#cfd6e6;font-size:14px;}
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 40px 60px;}
+  .kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px;}
+  .kpi{background:#fff;border-radius:10px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.08);border-top:4px solid var(--navy);}
+  .kpi.overdue{border-top-color:var(--red);} .kpi.risk{border-top-color:var(--amber);}
+  .kpi.ontrack{border-top-color:var(--green);} .kpi.flag{border-top-color:#8e44ad;}
+  .kpi .num{font-size:30px;font-weight:bold;} .kpi .lbl{font-size:12px;color:#666;text-transform:uppercase;letter-spacing:.5px;}
+  .grid2{display:grid;grid-template-columns:1.4fr 1fr;gap:20px;margin-bottom:24px;}
+  .card{background:#fff;border-radius:10px;padding:20px 22px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .card h2{margin:0 0 14px;font-size:15px;color:var(--navy);text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--grey);padding-bottom:10px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;color:#888;font-weight:600;font-size:11px;text-transform:uppercase;padding:6px 8px;border-bottom:1px solid #eee;}
+  td{padding:8px;border-bottom:1px solid #f0f0f0;vertical-align:top;}
+  .badge{display:inline-block;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:bold;}
+  .badge.OVERDUE{background:#fdecea;color:var(--red);}
+  .badge.AT-RISK{background:#fdf3dc;color:var(--amber);}
+  .badge.ON-TRACK{background:#e9f7ef;color:var(--green);}
+  .badge.flag{background:#f1e6f8;color:#8e44ad;}
+  .tag{font-size:10px;font-weight:bold;padding:2px 7px;border-radius:4px;letter-spacing:.5px;}
+  .tag.ai{background:#e8eef7;color:var(--navy);} .tag.det{background:#eef3ea;color:#2e7d32;} .tag.hum{background:#fbeee6;color:#a4531e;}
+  .bluf{white-space:pre-wrap;font-size:13.5px;line-height:1.55;}
+  .bluf b{color:var(--navy);}
+  .pillrow{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  footer{text-align:center;color:#888;font-size:12px;padding:20px;}
+  .legend{display:flex;gap:18px;font-size:12px;color:#555;margin-top:8px;flex-wrap:wrap;}
+  .legend span{display:flex;align-items:center;gap:6px;}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap" style="padding:0;">
+    <div class="eyebrow">Capstone 02 · Consulting or Project Delivery Assistant</div>
+    <h1>NorthBridge ERP Transformation — Delivery Risk &amp; Escalation Assistant</h1>
+    <p>Live view generated from Risk_Action_Tracker · Week ending 2026-08-05 · Gen AI extraction (Claude) + deterministic validation (formulas/code) + human review</p>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <div class="kpis">
+    <div class="kpi"><div class="num">10</div><div class="lbl">Open Actions &amp; Decisions</div></div>
+    <div class="kpi overdue"><div class="num">0</div><div class="lbl">Overdue</div></div>
+    <div class="kpi risk"><div class="num">5</div><div class="lbl">At Risk (≤3 days)</div></div>
+    <div class="kpi ontrack"><div class="num">5</div><div class="lbl">On Track</div></div>
+    <div class="kpi flag"><div class="num">1</div><div class="lbl">Owner Validation Flag</div></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Risk &amp; Action Tracker <span style="float:right"><span class="tag det">Deterministic</span></span></h2>
+      <table>
+        <tr><th>Action</th><th>Owner</th><th>Due</th><th>Status</th><th>Escalation</th></tr>
+        <tr><td>Complete supply chain data extraction</td><td>Fatima Rahman</td><td>Aug 10</td><td><span class="badge ON-TRACK">ON TRACK</span></td><td>—</td></tr>
+        <tr><td>Validate supply chain reconciliation sample</td><td>Marcus Chen</td><td>Aug 10</td><td><span class="badge ON-TRACK">ON TRACK</span></td><td>—</td></tr>
+        <tr><td>Retest 3 severity-1 Finance UAT defects</td><td>Priya Nair</td><td>Aug 12</td><td><span class="badge ON-TRACK">ON TRACK</span></td><td>—</td></tr>
+        <tr><td>Send store training rollout schedule</td><td>James O'Connor</td><td>Aug 7</td><td><span class="badge AT-RISK">AT RISK</span></td><td>Monitor daily</td></tr>
+        <tr><td>Escalate middleware latency to TechFlow</td><td>Rahul Verma</td><td>Aug 11</td><td><span class="badge ON-TRACK">ON TRACK</span></td><td>—</td></tr>
+        <tr><td>Prepare change-request cost summary</td><td>Rahul Verma</td><td>Aug 6</td><td><span class="badge AT-RISK">AT RISK</span></td><td>Monitor daily</td></tr>
+        <tr><td>Decide: delay UAT cycle 2 by one week</td><td>Steering Committee <span class="badge flag">flag</span></td><td>Aug 6</td><td><span class="badge AT-RISK">AT RISK</span></td><td>Monitor daily</td></tr>
+        <tr><td>Send SLA escalation to TechFlow / SAP AMS</td><td>Rahul Verma</td><td>Aug 6</td><td><span class="badge AT-RISK">AT RISK</span></td><td>Monitor daily</td></tr>
+        <tr><td>Escalate training registration to Regional VP</td><td>James O'Connor</td><td>Aug 8</td><td><span class="badge AT-RISK">AT RISK</span></td><td>Monitor daily</td></tr>
+        <tr><td>Refresh super-user FAQ</td><td>James O'Connor</td><td>Aug 13</td><td><span class="badge ON-TRACK">ON TRACK</span></td><td>—</td></tr>
+      </table>
+      <div class="legend">
+        <span><span class="dot" style="background:#C0392B"></span>Overdue</span>
+        <span><span class="dot" style="background:#B7791F"></span>At Risk (≤3 days)</span>
+        <span><span class="dot" style="background:#1E8449"></span>On Track</span>
+        <span><span class="dot" style="background:#8e44ad"></span>Owner not found in Project_Plan (validation catch)</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Status Mix</h2>
+      <canvas id="statusChart" height="200"></canvas>
+      <h2 style="margin-top:22px;">Pipeline</h2>
+      <div class="pillrow">
+        <span class="tag ai">Claude · extract (STAR)</span>
+        <span class="tag det">Code/formula · validate</span>
+        <span class="tag ai">Claude · draft (BLUF/SCQA)</span>
+        <span class="tag hum">Human · review &amp; approve</span>
+      </div>
+      <p style="font-size:12.5px;color:#666;line-height:1.5;">
+        Unstructured meeting transcripts go in; Claude extracts structured actions; a deterministic
+        engine validates owners and calculates status from real dates; Claude drafts the leadership
+        narrative; a programme manager reviews before anything reaches the Steering Committee.
+      </p>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Weekly Status Update <span style="float:right"><span class="tag ai">Gen AI · BLUF</span></span></h2>
+      <div class="bluf"><b>Bottom Line:</b> Programme remains on track for the August 21 training and UAT milestones, but 5 of 10 open actions are due within 3 days and need attention now. One action lacks a named individual owner and was automatically flagged by the tracker. One decision requires the Steering Committee before August 6.
+
+<b>Risks:</b> Data Migration workstream is At Risk pending a Steering Committee decision on the UAT cycle 2 timeline. Middleware latency escalated to TechFlow — cutover rehearsal date at risk if no response by Aug 11. Store training registration under 40% in two regions ahead of the Aug 21 deadline.
+
+<b>Asks:</b> Decide on UAT cycle 2 timeline (Aug 6). Assign a named owner to replace "Steering Committee" on the tracker. Approve the SLA escalation email.</div>
+    </div>
+
+    <div class="card">
+      <h2>Escalation Brief <span style="float:right"><span class="tag ai">Gen AI · SCQA</span></span></h2>
+      <div class="bluf" style="font-size:13px;"><b>Situation:</b> Supply chain data extraction is 5 business days behind due to vendor API throttling.
+
+<b>Complication:</b> This compresses UAT cycle 2 into the same window, raising the risk of undetected data defects at cutover rehearsal.
+
+<b>Question:</b> Delay UAT cycle 2 by one week, or hold the date and accept elevated risk?
+
+<b>Answer (draft):</b> Recommend a one-week delay — cheaper than fixing defects discovered during rehearsal. Final call rests with the Committee.</div>
+    </div>
+  </div>
+
+</div>
+
+<footer>NorthBridge Retail Group is a fictional company built for this capstone. All data is synthetic. Not for real operational use.</footer>
+
+<script>
+new Chart(document.getElementById('statusChart'), {
+  type: 'doughnut',
+  data: {
+    labels: ['On Track', 'At Risk', 'Overdue'],
+    datasets: [{ data: [5,5,0], backgroundColor: ['#1E8449','#B7791F','#C0392B'], borderWidth:0 }]
+  },
+  options: { plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{size:11} } } }, cutout:'62%' }
+});
+</script>
+</body>
+</html>
